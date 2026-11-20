@@ -286,10 +286,8 @@
 
     $('#proceedBtn')?.addEventListener('click', () => {
       closeModal(modalOverlay);
-      updateVerifiedBanner();
-      const storeSec = $('#storeSection') || $('#products');
-      if (storeSec) {
-        storeSec.scrollIntoView({ behavior: 'smooth' });
+      if (state.player && state.player.uid) {
+        window.location.assign('store.html?uid=' + encodeURIComponent(state.player.uid));
       } else {
         window.location.assign('store.html');
       }
@@ -302,8 +300,7 @@
     if (state.player) {
       if ($('#vNick')) $('#vNick').textContent = state.player.nickname;
       if ($('#vUid')) $('#vUid').textContent = state.player.uid;
-      if ($('#vLevel')) $('#vLevel').textContent = 'Level ' + state.player.level;
-      if ($('#vRegion')) $('#vRegion').textContent = state.player.region;
+      if ($('#vLevel')) $('#vLevel').textContent = 'Level ' + state.player.level + (state.player.region ? ' (' + state.player.region + ')' : '');
       banner.style.display = 'block';
     } else {
       banner.style.display = 'none';
@@ -399,6 +396,31 @@
     const tabsWrap = $('#tabs');
     const grid = $('#productGrid');
     if (!tabsWrap || !grid) return;
+
+    // Check if on dedicated store page
+    const isStorePage = window.location.pathname.includes('store');
+    if (isStorePage) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const qUid = urlParams.get('uid');
+      if (!state.player && qUid) {
+        try {
+          state.player = await fetchPlayerInfo(qUid);
+          savePlayer(state.player);
+        } catch (_) {}
+      }
+      if (!state.player) {
+        window.location.replace('index.html#topup');
+        return;
+      }
+      updateVerifiedBanner();
+
+      $('#changeAccount')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        clearPlayer();
+        state.player = null;
+        window.location.assign('index.html#topup');
+      });
+    }
 
     const categories = await loadCatalogue();
     state.categories = categories;

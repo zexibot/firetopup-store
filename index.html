@@ -33,7 +33,6 @@
       </a>
       <nav class="main-nav" id="mainNav">
         <a href="#topup">Top-Up</a>
-        <a href="#storeSection">Store</a>
         <a href="#how">How it works</a>
         <a href="#faq">FAQ</a>
       </nav>
@@ -77,24 +76,6 @@
     </div>
   </section>
 
-  <!-- Verified Account Hero Bar (Shown when verified) -->
-  <section class="store-hero" id="verifiedPlayerBanner" style="display:none;">
-    <div class="container">
-      <div class="verified-bar">
-        <div class="vb-left">
-          <div class="vb-avatar"><img src="assets/icons/game-icon.png" alt="Free Fire" /></div>
-          <div class="vb-info">
-            <span class="vb-label">Topping up for</span>
-            <strong id="vNick">—</strong>
-            <span class="vb-meta">UID <b id="vUid">—</b> · <span id="vLevel">—</span></span>
-          </div>
-          <span class="vb-badge">✓ Verified</span>
-        </div>
-        <a href="#topup" id="changeAccount" class="vb-change">Change account</a>
-      </div>
-    </div>
-  </section>
-
   <!-- UID Top-Up flow -->
   <section class="topup" id="topup">
     <div class="container">
@@ -126,20 +107,6 @@
           </button>
         </form>
       </div>
-    </div>
-  </section>
-
-  <!-- Store Section -->
-  <section class="products" id="storeSection">
-    <div class="container">
-      <div class="section-head">
-        <h2>Top Up <span class="grad">Centre</span></h2>
-        <p>Pick a pack — delivered instantly to your verified account.</p>
-      </div>
-
-      <div class="tabs" id="tabs" role="tablist"></div>
-
-      <div class="product-grid" id="productGrid"></div>
     </div>
   </section>
 
@@ -182,7 +149,7 @@
         <p class="muted">Genuine Free Fire top-ups, delivered instantly to your UID.</p>
       </div>
       <div class="footer-cols">
-        <div><h4>Store</h4><a href="#storeSection">Diamonds</a><a href="#storeSection">Booyah Pass</a><a href="#storeSection">Membership</a></div>
+        <div><h4>Store</h4><a href="store.html">Diamonds</a><a href="store.html">Booyah Pass</a><a href="store.html">Membership</a></div>
         <div><h4>Help</h4><a href="#faq">FAQ</a><a href="#how">How it works</a><a href="#topup">Verify UID</a></div>
         <div><h4>Legal</h4><a href="#">Terms</a><a href="#">Privacy</a><a href="#">Refunds</a></div>
       </div>
@@ -218,14 +185,6 @@
         <button class="btn btn-primary btn-block pm-cta" id="proceedBtn">Proceed to Store →</button>
         <button class="btn btn-text" id="notMeBtn">Not my account? Re-enter UID</button>
       </div>
-    </div>
-  </div>
-
-  <!-- Payment Modal -->
-  <div class="modal-overlay" id="payOverlay" hidden>
-    <div class="modal modal-pay" role="dialog" aria-modal="true">
-      <button class="modal-close" id="payClose" aria-label="Close">✕</button>
-      <div class="modal-body" id="payBody"></div>
     </div>
   </div>
 

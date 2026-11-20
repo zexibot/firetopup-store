@@ -24,7 +24,7 @@ const APP_CONFIG = {
 
     // Real API URL - {UID} automatically replace ho jayega entered UID se
     // Aur agar aapki API key header ya param mein chahiye toh yahan set karein
-    endpoint: "api/verify.php?uid={UID}",
+    endpoint: "api/verify?uid={UID}",
     apiKey: "YOUR_TOPUP_API_KEY_HERE",
     
     // Headers agar aapki API mangti hai (jaise Authorization: Bearer ...)
