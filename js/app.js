@@ -378,17 +378,21 @@
      Store Catalogue & Exact Product Card Rendering
      ============================================================ */
   async function loadCatalogue() {
+    const cfg = window.APP_CONFIG || (typeof APP_CONFIG !== 'undefined' ? APP_CONFIG : null);
+    if (cfg && cfg.catalog && cfg.catalog.length) {
+      return cfg.catalog;
+    }
+
     try {
-      const res = await fetch('api/products.json', { cache: 'no-store' });
-      const data = await res.json();
-      if (data && data.ok && Array.isArray(data.categories) && data.categories.length) {
-        return data.categories;
+      const res = await fetch('products.json', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.ok && Array.isArray(data.categories) && data.categories.length) {
+          return data.categories;
+        }
       }
     } catch (_) {}
 
-    if (window.APP_CONFIG && APP_CONFIG.catalog) {
-      return APP_CONFIG.catalog;
-    }
     return [];
   }
 
@@ -465,7 +469,7 @@
             <div class="p-sub">${p.sub}</div>
             ${stockLine}
             <div class="p-foot">
-              <div class="p-price">${money(p.price)}${p.old ? `<span class="p-old">${money(p.old)}</span>` : ''}</div>
+              <div class="p-price">${money(p.price)}${(p.old || p.oldPrice) ? `<span class="p-old">${money(p.old || p.oldPrice)}</span>` : ''}</div>
               <span class="p-buy">${out ? 'Sold out' : 'Buy →'}</span>
             </div>
           </article>

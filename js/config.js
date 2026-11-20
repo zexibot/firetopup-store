@@ -5,7 +5,7 @@
  * Yahan aap apna Brand Name, API Key, UPI ID aur Products change kar sakte hain.
  */
 
-const APP_CONFIG = {
+window.APP_CONFIG = {
   // Brand details
   brand: {
     name: "FireTopUp",
@@ -193,3 +193,5 @@ const APP_CONFIG = {
     }
   ]
 };
+
+var APP_CONFIG = window.APP_CONFIG;
