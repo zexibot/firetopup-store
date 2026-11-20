@@ -33,11 +33,12 @@ window.APP_CONFIG = {
     }
   },
 
-  // Payment Configuration
+  // Payment Configuration (Secure Server-side ZexiPay Integration)
   payment: {
-    upiId: "paytmqr123456@paytm", // Aapka real UPI ID
-    merchantName: "TopUp Store",
-    supportDeepLinks: true, // PhonePe, Paytm, GooglePay direct redirect
+    gateway: "ZexiPay",
+    merchantName: "FireTopUp",
+    currency: "INR",
+    supportDeepLinks: true,
     qrExpireMinutes: 6
   },
 

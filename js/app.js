@@ -565,7 +565,7 @@
   let pollInterval = null;
 
   async function launchPaymentDeepLink(method, amount, product, player) {
-    $('#payBody').innerHTML = `<div class="pay-loading"><span class="spinner big"></span><p>Creating secure payment order…</p></div>`;
+    $('#payBody').innerHTML = `<div class="pay-loading"><span class="spinner big"></span><p>Creating secure ZexiPay order…</p></div>`;
 
     let orderData = null;
     try {
@@ -574,59 +574,67 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           productId: product.id,
+          productName: product.name,
+          amount: product.price,
           uid: player.uid,
           nickname: player.nickname,
           callbackUrl: window.location.href
         })
       });
       const resJson = await res.json();
-      if (resJson.status === 'success' && resJson.data) {
+      if (res.ok && resJson.status === 'success' && resJson.data) {
         orderData = resJson.data;
+      } else {
+        toast(resJson.message || 'Payment gateway connection error.', 'err');
+        showPaymentModal(product, player);
+        return;
       }
-    } catch (_) {}
-
-    const orderId = orderData?.order_id || ('FF_' + Date.now() + Math.floor(Math.random() * 900 + 100));
-    const upiUri = orderData?.upi_uri || `upi://pay?pa=test@upi&pn=FireTopUp&am=${amount.toFixed(2)}&cu=INR&tr=${orderId}&tn=${encodeURIComponent(product.name + ' - UID ' + player.uid)}`;
-    const qrImageUrl = orderData?.qr_image_url || `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(upiUri)}`;
-
-    if (method === 'qr') {
-      showQrPayment(amount, product, player, orderId, upiUri, qrImageUrl);
+    } catch (err) {
+      toast('Network error connecting to payment gateway: ' + (err.message || ''), 'err');
+      showPaymentModal(product, player);
       return;
     }
 
-    let redirectUrl = upiUri;
-    if (method === 'phonepe') {
-      const payload = {
-        p2pPaymentCheckoutParams: {
-          checkoutType: 'COLLECT',
-          initialAmount: Math.round(amount * 100),
-          note: { type: 'text', message: `${product.name} - UID ${player.uid} - ${orderId}` },
-          supportedInstruments: -1,
-        },
-        contact: { type: 'EXTERNAL_MERCHANT', name: 'FireTopUp', vpa: 'paytmqr123456@paytm' },
-      };
-      redirectUrl = (orderData?.payment_url && orderData.payment_url.startsWith('http'))
-        ? orderData.payment_url
-        : `phonepe://native?data=${encodeURIComponent(btoa(JSON.stringify(payload)))}&id=p2ppayment`;
-    } else if (method === 'paytm') {
-      redirectUrl = (orderData?.payment_url && orderData.payment_url.startsWith('http'))
-        ? orderData.payment_url
-        : `paytmmp://cash_wallet?pa=paytmqr123456@paytm&pn=FireTopUp&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(product.name + ' - UID ' + player.uid + ' - ' + orderId)}&featuretype=money_transfer`;
-    } else if (method === 'upi') {
-      redirectUrl = (orderData?.payment_url && orderData.payment_url.startsWith('http'))
-        ? orderData.payment_url
-        : upiUri;
+    if (!orderData) {
+      toast('Could not create payment order. Please try again.', 'err');
+      showPaymentModal(product, player);
+      return;
     }
 
-    window.location.href = redirectUrl;
+    const orderId = orderData.order_id;
+    const paymentUrl = orderData.payment_url;
+    const upiUri = orderData.upi_uri || paymentUrl;
+    const qrImageUrl = orderData.qr_image_url || `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(upiUri)}`;
+
+    if (method === 'qr') {
+      showQrPayment(amount, product, player, orderId, upiUri, qrImageUrl, paymentUrl);
+      return;
+    }
+
+    let redirectUrl = paymentUrl;
+    if (orderData.upi_uri) {
+      const upiQuery = orderData.upi_uri.includes('?') ? orderData.upi_uri.split('?')[1] : '';
+      if (method === 'phonepe') {
+        redirectUrl = `phonepe://pay?${upiQuery}`;
+      } else if (method === 'paytm') {
+        redirectUrl = `paytmmp://pay?${upiQuery}`;
+      } else if (method === 'upi') {
+        redirectUrl = orderData.upi_uri;
+      }
+    }
+
+    if (redirectUrl) {
+      window.location.href = redirectUrl;
+    }
 
     setTimeout(() => {
       $('#payBody').innerHTML = `
         <div class="success-ring"><span class="check">↗</span></div>
-        <h3 class="modal-title">Payment app opened</h3>
-        <p class="modal-sub">Complete the payment in your selected app. Diamonds will be credited to UID <b>${player.uid}</b>.</p>
-        <button class="btn btn-primary btn-block" type="button" id="backToMethods">Back to payment options</button>
-        <button class="btn btn-text" type="button" id="closeAfterRedirect">Close</button>
+        <h3 class="modal-title">Payment App Opened</h3>
+        <p class="modal-sub">Complete payment in your app. After paying, diamonds will be credited automatically to UID <b>${esc(player.uid)}</b>.</p>
+        ${paymentUrl ? `<a href="${esc(paymentUrl)}" target="_blank" class="btn btn-primary btn-block" style="margin-bottom:8px;">Open ZexiPay Checkout Page ↗</a>` : ''}
+        <button class="btn btn-secondary btn-block" type="button" id="backToMethods">Back to payment options</button>
+        <button class="btn btn-text" type="button" id="closeAfterRedirect">Cancel</button>
       `;
       $('#backToMethods').addEventListener('click', () => showPaymentModal(product, player));
       $('#closeAfterRedirect').addEventListener('click', closePayment);
@@ -634,19 +642,21 @@
     }, 1800);
   }
 
-  function showQrPayment(amount, product, player, orderId, upiUri, qrImageUrl) {
+  function showQrPayment(amount, product, player, orderId, upiUri, qrImageUrl, paymentUrl) {
     clearPaymentTimer();
     $('#payBody').innerHTML = `
       <button class="modal-close qr-close" id="qrClose" aria-label="Close">✕</button>
-      <h3 class="modal-title">Scan & Pay</h3>
-      <p class="modal-sub">Scan this fresh QR using any UPI app.</p>
+      <h3 class="modal-title">Scan & Pay via ZexiPay</h3>
+      <p class="modal-sub">Scan this fresh QR using PhonePe, Paytm, GPay or any UPI app.</p>
       <div class="qr-box"><img class="generated-qr" src="${esc(qrImageUrl)}" alt="UPI payment QR" width="280" height="280"></div>
       <div class="pay-amount">${money(amount)}</div>
       <div class="checkout-summary">
         <div class="cs-row"><span>Account</span><strong>${esc(player.nickname)}</strong></div>
         <div class="cs-row"><span>UID</span><strong>${esc(player.uid)}</strong></div>
         <div class="cs-row"><span>Item</span><strong>${esc(product.name)}</strong></div>
+        <div class="cs-row"><span>Order ID</span><small>${esc(orderId)}</small></div>
       </div>
+      ${paymentUrl ? `<a href="${esc(paymentUrl)}" target="_blank" class="btn btn-secondary btn-block" style="margin-bottom:8px;">Open ZexiPay Checkout Page ↗</a>` : ''}
       <p class="pay-status">QR expires in <span id="qrTimer">6:00</span></p>
       <button class="btn btn-primary btn-block" id="qrBackBtn" type="button">Back to payment methods</button>
     `;

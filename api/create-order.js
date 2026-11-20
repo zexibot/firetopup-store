@@ -25,8 +25,16 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ status: 'error', message: 'Missing productId or UID' });
     }
 
-    // Authoritative Server-side Price Lookup
-    const product = productsTable[productId];
+    // Authoritative Server-side Price Lookup (or fallback to positive amount)
+    let product = productsTable[productId];
+    if (!product && body.amount && Number(body.amount) > 0) {
+      product = {
+        id: productId,
+        name: body.productName || 'TopUp Package',
+        price: Number(body.amount).toFixed(2)
+      };
+    }
+
     if (!product) {
       return res.status(400).json({ status: 'error', message: 'Invalid product selected' });
     }
@@ -37,29 +45,21 @@ module.exports = async function handler(req, res) {
 
     // Check if live ZexiPay credentials are provided
     if (!apiKey || !apiSecret || apiKey.includes('your_server_side')) {
-      // Return safe fallback for sandbox / development preview
-      const fallbackUpi = `upi://pay?pa=test@upi&pn=FireTopUp&am=${product.price}&cu=INR&tr=${orderId}&tn=${encodeURIComponent(product.name + ' UID ' + uid)}`;
-      return res.status(200).json({
-        status: 'success',
-        mode: 'sandbox_preview',
-        data: {
-          order_id: orderId,
-          amount: product.price,
-          currency: 'INR',
-          customer_name: nickname || `Player ${uid}`,
-          payment_url: fallbackUpi,
-          upi_uri: fallbackUpi,
-          qr_image_url: `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(fallbackUpi)}`,
-          expires_at_unix: Math.floor(Date.now() / 1000) + 3600
-        }
+      return res.status(500).json({
+        status: 'error',
+        message: 'ZexiPay API Key / Secret is missing or not configured on Vercel.'
       });
     }
 
-    // Live ZexiPay Integration
+    // Clean customer name for gateway
+    const cleanNick = (nickname || `UID_${uid}`).replace(/[^a-zA-Z0-9 _-]/g, '').trim().slice(0, 50) || 'Gamer';
+    const numAmount = Number(product.price).toFixed(2);
+
+    // Live ZexiPay Integration - Create Order
     const createOrderPayload = {
       order_id: orderId,
-      amount: product.price,
-      customer_name: (nickname || `UID_${uid}`).replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 50) || 'Gamer',
+      amount: numAmount,
+      customer_name: cleanNick,
       customer_mobile: customerMobile || '+919876543210',
       callback_url: callbackUrl || (req.headers.origin ? `${req.headers.origin}/store.html` : 'https://free-fire-topup.shop'),
       is_reusable: false
@@ -84,7 +84,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Try prepare in-app embedded checkout
+    // Prepare in-app embedded checkout details (UPI URI, QR code image, provider)
     let checkoutDetails = {};
     try {
       const prepResp = await fetch('https://zexipay.com/api/prepare-checkout', {
@@ -108,12 +108,13 @@ module.exports = async function handler(req, res) {
       status: 'success',
       data: {
         order_id: orderId,
-        amount: product.price,
+        amount: numAmount,
         currency: 'INR',
         payment_url: orderData.payment_url || checkoutDetails.payment_url,
-        upi_uri: checkoutDetails.upi_uri || orderData.payment_url,
+        upi_uri: checkoutDetails.upi_uri || null,
         qr_image_url: checkoutDetails.qr_image_url || null,
-        expires_at_unix: checkoutDetails.expires_at_unix || orderData.expires_at || (Math.floor(Date.now() / 1000) + 3600)
+        payee_name: checkoutDetails.payee_name || 'Merchant',
+        expires_at_unix: checkoutDetails.expires_at_unix || (Math.floor(Date.now() / 1000) + 3600)
       }
     });
 
