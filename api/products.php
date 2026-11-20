@@ -1,0 +1,155 @@
+<?php
+header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
+
+echo json_encode([
+    "ok" => true,
+    "categories" => [
+        [
+            "slug" => "diamonds",
+            "name" => "Diamonds",
+            "icon" => "💎",
+            "image" => "assets/categories/categories_20260618131908_8da0ba.png",
+            "items" => [
+                [
+                    "id" => "p2",
+                    "icon" => "💎",
+                    "image" => "assets/products/products_20260618130432_e4e517.png",
+                    "amount" => "310",
+                    "name" => "310 Diamonds",
+                    "sub" => "+31 bonus",
+                    "price" => 88,
+                    "old" => 260,
+                    "tag" => "⚡ LIMITED",
+                    "stock" => 144,
+                    "inStock" => true
+                ],
+                [
+                    "id" => "p3",
+                    "icon" => "💎",
+                    "image" => "assets/products/products_20260618130756_687fd4.png",
+                    "amount" => "520",
+                    "name" => "520 Diamonds",
+                    "sub" => "+52 bonus",
+                    "price" => 119,
+                    "old" => 440,
+                    "tag" => "🔥 BEST VALUE",
+                    "stock" => 18,
+                    "inStock" => true
+                ],
+                [
+                    "id" => "p4",
+                    "icon" => "💎",
+                    "image" => "assets/products/products_20260618131428_da9e7d.png",
+                    "amount" => "1060",
+                    "name" => "1060 Diamonds",
+                    "sub" => "+106 bonus",
+                    "price" => 149,
+                    "old" => 860,
+                    "tag" => null,
+                    "stock" => 398,
+                    "inStock" => true
+                ],
+                [
+                    "id" => "p5",
+                    "icon" => "💎",
+                    "image" => "assets/products/products_20260618131446_ae70d5.png",
+                    "amount" => "2180",
+                    "name" => "2180 Diamonds",
+                    "sub" => "+218 bonus",
+                    "price" => 249,
+                    "old" => 1700,
+                    "tag" => null,
+                    "stock" => 345,
+                    "inStock" => true
+                ],
+                [
+                    "id" => "p6",
+                    "icon" => "💎",
+                    "image" => "assets/products/products_20260618131503_e48bb6.png",
+                    "amount" => "5600",
+                    "name" => "5600 Diamonds",
+                    "sub" => "+560 bonus",
+                    "price" => 599,
+                    "old" => 4300,
+                    "tag" => "🆕 NEW",
+                    "stock" => 131,
+                    "inStock" => true
+                ]
+            ]
+        ],
+        [
+            "slug" => "passes",
+            "name" => "Passes",
+            "icon" => "🎟️",
+            "image" => "assets/categories/categories_20260618132038_c0a216.png",
+            "items" => [
+                [
+                    "id" => "p16",
+                    "icon" => "💎",
+                    "image" => "assets/products/products_20260618133127_78497d.png",
+                    "amount" => "Weekly",
+                    "name" => "Weekly Pass",
+                    "sub" => "15-day rewards track",
+                    "price" => 99,
+                    "old" => 159,
+                    "tag" => "⚡ LIMITED",
+                    "stock" => 225,
+                    "inStock" => true
+                ],
+                [
+                    "id" => "p17",
+                    "icon" => "💎",
+                    "image" => "assets/products/products_20260618144016_48b5e4.png",
+                    "amount" => "Monthly",
+                    "name" => "Monthly Pass",
+                    "sub" => "30-day rewards track",
+                    "price" => 299,
+                    "old" => 799,
+                    "tag" => "🔥 HOT",
+                    "stock" => 285,
+                    "inStock" => true
+                ],
+                [
+                    "id" => "p18",
+                    "icon" => "💎",
+                    "image" => "assets/products/products_20260618144137_8f687e.png",
+                    "amount" => "30 D Evo",
+                    "name" => "30 D EVO ACCESS",
+                    "sub" => "30 DAYS ACCESS",
+                    "price" => 259,
+                    "old" => 599,
+                    "tag" => "🆕 NEW",
+                    "stock" => 124,
+                    "inStock" => true
+                ],
+                [
+                    "id" => "p7",
+                    "icon" => "🎟️",
+                    "image" => "assets/products/products_20260618132321_6d00cf.png",
+                    "amount" => "Booyah",
+                    "name" => "Booyah Pass",
+                    "sub" => "Current season — premium",
+                    "price" => 149,
+                    "old" => 499,
+                    "tag" => "HOT",
+                    "stock" => 217,
+                    "inStock" => true
+                ],
+                [
+                    "id" => "p8",
+                    "icon" => "👑",
+                    "image" => "assets/products/products_20260618132415_969094.png",
+                    "amount" => "Booyah+",
+                    "name" => "Booyah Pass Plus",
+                    "sub" => "Premium + 30 level jump",
+                    "price" => 299,
+                    "old" => 999,
+                    "tag" => "BEST VALUE",
+                    "stock" => 133,
+                    "inStock" => true
+                ]
+            ]
+        ]
+    ]
+]);
