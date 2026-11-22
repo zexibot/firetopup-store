@@ -75,19 +75,23 @@ module.exports = async function handler(req, res) {
     return res.status(200).json(cached.data);
   }
 
+  let lastErr = '';
   // 2. Fetch live data via direct IPv4 HTTPS request
   try {
     const data = await fetchUpstreamPlayer(uid);
     playerCache.set(uid, { data, timestamp: Date.now() });
     return res.status(200).json(data);
   } catch (err) {
+    lastErr = err.message || String(err);
     // Retry once if first attempt failed
     try {
       await new Promise(r => setTimeout(r, 500));
       const retryData = await fetchUpstreamPlayer(uid);
       playerCache.set(uid, { data: retryData, timestamp: Date.now() });
       return res.status(200).json(retryData);
-    } catch (_) {}
+    } catch (e2) {
+      lastErr += ' | retry: ' + (e2.message || String(e2));
+    }
   }
 
   // 3. Fallback only if upstream network completely unreachable
@@ -98,6 +102,7 @@ module.exports = async function handler(req, res) {
   return res.status(200).json({
     status: 'success',
     route: 'LocalFallback',
+    error_reason: lastErr,
     data: {
       basicInfo: {
         accountId: uid,
