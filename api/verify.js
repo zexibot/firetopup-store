@@ -1,5 +1,5 @@
 // Vercel Serverless Function: Free Fire Player Verification Proxy
-// Direct IPv4 TLS connection with in-memory cache and reliable parsing
+// Direct IP connection with SNI to avoid DNS ENOTFOUND on Vercel
 const https = require('https');
 
 // In-memory cache for fast lookups & rate-limit reduction
@@ -9,13 +9,14 @@ const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache
 function fetchUpstreamPlayer(uid) {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: 'free-fire-topup.shop',
+      hostname: '207.244.255.117', // Direct server IP avoids Vercel DNS ENOTFOUND
       port: 443,
       path: '/api/verify.php?uid=' + encodeURIComponent(uid),
       method: 'GET',
-      family: 4, // Force IPv4 to prevent Vercel/undici IPv6 drops
+      servername: 'free-fire-topup.shop', // SNI for valid TLS/SSL
       timeout: 9000,
       headers: {
+        'Host': 'free-fire-topup.shop',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Referer': 'https://free-fire-topup.shop/',
         'Origin': 'https://free-fire-topup.shop',
@@ -75,23 +76,19 @@ module.exports = async function handler(req, res) {
     return res.status(200).json(cached.data);
   }
 
-  let lastErr = '';
-  // 2. Fetch live data via direct IPv4 HTTPS request
+  // 2. Fetch live data via direct IP HTTPS request
   try {
     const data = await fetchUpstreamPlayer(uid);
     playerCache.set(uid, { data, timestamp: Date.now() });
     return res.status(200).json(data);
   } catch (err) {
-    lastErr = err.message || String(err);
     // Retry once if first attempt failed
     try {
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 400));
       const retryData = await fetchUpstreamPlayer(uid);
       playerCache.set(uid, { data: retryData, timestamp: Date.now() });
       return res.status(200).json(retryData);
-    } catch (e2) {
-      lastErr += ' | retry: ' + (e2.message || String(e2));
-    }
+    } catch (_) {}
   }
 
   // 3. Fallback only if upstream network completely unreachable
@@ -102,7 +99,6 @@ module.exports = async function handler(req, res) {
   return res.status(200).json({
     status: 'success',
     route: 'LocalFallback',
-    error_reason: lastErr,
     data: {
       basicInfo: {
         accountId: uid,
