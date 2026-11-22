@@ -43,7 +43,9 @@ module.exports = async function handler(req, res) {
     'Cache-Control': 'no-cache'
   };
 
+  let debugInfo = { attempts: 0 };
   for (let attempt = 1; attempt <= 2; attempt++) {
+    debugInfo.attempts++;
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 9500); // 9.5s allows Garena OB55 game protocol to reply
@@ -54,16 +56,26 @@ module.exports = async function handler(req, res) {
       });
       clearTimeout(timeout);
 
+      debugInfo.status = upstreamResp.status;
       if (upstreamResp.ok) {
-        const data = await upstreamResp.json();
-        if (data && (data.data?.basicInfo || data.basicInfo || data.nickname)) {
-          // Cache successful player lookup
-          playerCache.set(uid, { data, timestamp: Date.now() });
-          return res.status(200).json(data);
+        const text = await upstreamResp.text();
+        try {
+          const data = JSON.parse(text);
+          if (data && (data.data?.basicInfo || data.basicInfo || data.nickname)) {
+            // Cache successful player lookup
+            playerCache.set(uid, { data, timestamp: Date.now() });
+            return res.status(200).json(data);
+          }
+          debugInfo.parsedError = 'Missing basicInfo/nickname';
+        } catch (je) {
+          debugInfo.jsonParseError = je.message;
+          debugInfo.rawText = text.slice(0, 100);
         }
+      } else {
+        debugInfo.httpError = upstreamResp.status + ' ' + upstreamResp.statusText;
       }
-    } catch (_) {
-      // If first attempt timed out, short delay before attempt 2
+    } catch (e) {
+      debugInfo.catchError = e.name + ': ' + e.message;
       if (attempt === 1) {
         await new Promise(r => setTimeout(r, 400));
       }
@@ -78,6 +90,7 @@ module.exports = async function handler(req, res) {
   return res.status(200).json({
     status: 'success',
     route: 'LocalFallback',
+    debug: debugInfo,
     data: {
       basicInfo: {
         accountId: uid,
