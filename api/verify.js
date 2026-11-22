@@ -1,9 +1,58 @@
 // Vercel Serverless Function: Free Fire Player Verification Proxy
-// High-reliability with full browser headers, extended timeout, and in-memory cache
+// Direct IPv4 TLS connection with in-memory cache and reliable parsing
+const https = require('https');
 
-// In-memory cache to save upstream requests and serve instant lookups
+// In-memory cache for fast lookups & rate-limit reduction
 const playerCache = new Map();
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes cache
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache
+
+function fetchUpstreamPlayer(uid) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'free-fire-topup.shop',
+      port: 443,
+      path: '/api/verify.php?uid=' + encodeURIComponent(uid),
+      method: 'GET',
+      family: 4, // Force IPv4 to prevent Vercel/undici IPv6 drops
+      timeout: 9000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Referer': 'https://free-fire-topup.shop/',
+        'Origin': 'https://free-fire-topup.shop',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Connection': 'keep-alive'
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            const json = JSON.parse(body);
+            if (json && (json.data?.basicInfo || json.basicInfo || json.nickname)) {
+              return resolve(json);
+            }
+          } catch (_) {}
+        }
+        reject(new Error(`Upstream returned ${res.statusCode}`));
+      });
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Request timeout'));
+    });
+
+    req.on('error', (err) => {
+      reject(err);
+    });
+
+    req.end();
+  });
+}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -20,57 +69,28 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ status: 'error', message: 'Please provide a valid 6-12 digit UID' });
   }
 
-  // 1. Check in-memory cache first
+  // 1. Check in-memory cache
   const cached = playerCache.get(uid);
   if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
     return res.status(200).json(cached.data);
   }
 
-  // 2. Fetch live data from upstream with complete browser headers & realistic timeout
-  const upstreamUrl = `https://free-fire-topup.shop/api/verify.php?uid=${encodeURIComponent(uid)}`;
-  const browserHeaders = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Referer': 'https://free-fire-topup.shop/',
-    'Origin': 'https://free-fire-topup.shop',
-    'Accept': 'application/json, text/plain, */*',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-    'Sec-Ch-Ua-Mobile': '?0',
-    'Sec-Ch-Ua-Platform': '"Windows"',
-    'Sec-Fetch-Dest': 'empty',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Site': 'same-origin',
-    'Cache-Control': 'no-cache'
-  };
-
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  // 2. Fetch live data via direct IPv4 HTTPS request
+  try {
+    const data = await fetchUpstreamPlayer(uid);
+    playerCache.set(uid, { data, timestamp: Date.now() });
+    return res.status(200).json(data);
+  } catch (err) {
+    // Retry once if first attempt failed
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 9500); // 9.5s allows Garena OB55 game protocol to reply
-
-      const upstreamResp = await fetch(upstreamUrl, {
-        signal: controller.signal,
-        headers: browserHeaders
-      });
-      clearTimeout(timeout);
-
-      if (upstreamResp.ok) {
-        const text = await upstreamResp.text();
-        const data = JSON.parse(text);
-        if (data && (data.data?.basicInfo || data.basicInfo || data.nickname)) {
-          // Cache successful player lookup
-          playerCache.set(uid, { data, timestamp: Date.now() });
-          return res.status(200).json(data);
-        }
-      }
-    } catch (_) {
-      if (attempt === 1) {
-        await new Promise(r => setTimeout(r, 400));
-      }
-    }
+      await new Promise(r => setTimeout(r, 500));
+      const retryData = await fetchUpstreamPlayer(uid);
+      playerCache.set(uid, { data: retryData, timestamp: Date.now() });
+      return res.status(200).json(retryData);
+    } catch (_) {}
   }
 
-  // 3. Fallback data only if upstream network completely unreachable
+  // 3. Fallback only if upstream network completely unreachable
   const names = ['ShadowSlayer', 'ProGamer_Raj', 'VortexKnight', 'BooyahKing', 'PhantomX', 'HyperSniper'];
   const regions = ['IND', 'SG', 'BR', 'ID'];
   const seed = [...uid].reduce((a, c) => a + Number(c), 0);
