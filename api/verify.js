@@ -76,6 +76,7 @@ module.exports = async function handler(req, res) {
       }
     } catch (e) {
       debugInfo.catchError = e.name + ': ' + e.message;
+      debugInfo.cause = e.cause ? (e.cause.code || e.cause.message || JSON.stringify(e.cause)) : 'none';
       if (attempt === 1) {
         await new Promise(r => setTimeout(r, 400));
       }
