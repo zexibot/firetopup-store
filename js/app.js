@@ -509,63 +509,19 @@
   function showPaymentModal(product, player) {
     const overlay = $('#payOverlay');
     const amount = Number(product.price) || 0;
-    let selectedMethod = 'phonepe';
     openModal(overlay);
-
-    const methods = [
-      { id: 'phonepe', name: 'PhonePe', tag: 'Fastest', icon: 'assets/payment/phonepe.svg' },
-      { id: 'paytm', name: 'Paytm', tag: '', icon: 'assets/payment/paytm_icon.svg' },
-      { id: 'upi', name: 'Other UPI app', tag: '', icon: 'assets/payment/bhim.png' },
-      { id: 'qr', name: 'Scan QR Code', tag: 'Works with any UPI app', icon: 'assets/payment/qr.png' },
-    ];
-
-    const render = () => {
-      $('#payBody').innerHTML = `
-        <h3 class="modal-title">Choose payment method</h3>
-        <p class="modal-sub">Select an app to continue securely.</p>
-        <div class="checkout-summary">
-          <div class="cs-row"><span>Account</span><strong>${esc(player.nickname)}</strong></div>
-          <div class="cs-row"><span>UID</span><strong>${esc(player.uid)}</strong></div>
-          <div class="cs-row"><span>Item</span><strong>${product.image ? '' : esc(product.icon || '💎') + ' '}${esc(product.name)}</strong></div>
-          <div class="cs-row total"><span>Total</span><strong>${money(amount)}</strong></div>
-        </div>
-        <div class="deep-payment-options" role="radiogroup" aria-label="Payment methods">
-          ${methods.map((m, i) => `
-            <button type="button" class="deep-payment-option${i === 0 ? ' selected' : ''}" data-method="${m.id}" role="radio" aria-checked="${i === 0 ? 'true' : 'false'}">
-              <span class="deep-payment-left">
-                <span class="deep-payment-icon"><img src="${m.icon}" alt=""></span>
-                <span><b>${m.name}</b>${m.tag ? `<small>${m.tag}</small>` : ''}</span>
-              </span>
-              <span class="deep-payment-radio"></span>
-            </button>
-          `).join('')}
-        </div>
-        <button class="btn btn-primary btn-block" id="deepPayBtn">Pay ${money(amount)} →</button>
-        <p class="muted center">You will be redirected to your selected payment app.</p>
-        <button class="btn btn-text" type="button" id="deepCancelBtn">Cancel</button>
-      `;
-
-      $$('.deep-payment-option', $('#payBody')).forEach((btn) => btn.addEventListener('click', () => {
-        selectedMethod = btn.dataset.method;
-        $$('.deep-payment-option', $('#payBody')).forEach((b) => {
-          const active = b === btn;
-          b.classList.toggle('selected', active);
-          b.setAttribute('aria-checked', active ? 'true' : 'false');
-        });
-      }));
-
-      $('#deepPayBtn').addEventListener('click', () => launchPaymentDeepLink(selectedMethod, amount, product, player));
-      $('#deepCancelBtn').addEventListener('click', closePayment);
-      $('#payClose').onclick = closePayment;
-    };
-
-    render();
+    $('#payClose').onclick = closePayment;
+    launchQrPayment(amount, product, player);
   }
 
   let pollInterval = null;
 
-  async function launchPaymentDeepLink(method, amount, product, player) {
-    $('#payBody').innerHTML = `<div class="pay-loading"><span class="spinner big"></span><p>Creating secure ZexiPay order…</p></div>`;
+  async function launchQrPayment(amount, product, player) {
+    $('#payBody').innerHTML = `
+      <h3 class="modal-title">Generating QR Code</h3>
+      <p class="modal-sub">Please wait while we generate your payment QR…</p>
+      <div class="pay-loading" style="padding: 2.5rem 0;"><span class="spinner big"></span></div>
+    `;
 
     let orderData = null;
     try {
@@ -586,18 +542,18 @@
         orderData = resJson.data;
       } else {
         toast(resJson.message || 'Payment gateway connection error.', 'err');
-        showPaymentModal(product, player);
+        closePayment();
         return;
       }
     } catch (err) {
       toast('Network error connecting to payment gateway: ' + (err.message || ''), 'err');
-      showPaymentModal(product, player);
+      closePayment();
       return;
     }
 
     if (!orderData) {
       toast('Could not create payment order. Please try again.', 'err');
-      showPaymentModal(product, player);
+      closePayment();
       return;
     }
 
@@ -606,63 +562,70 @@
     const upiUri = orderData.upi_uri || paymentUrl;
     const qrImageUrl = orderData.qr_image_url || `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(upiUri)}`;
 
-    if (method === 'qr') {
-      showQrPayment(amount, product, player, orderId, upiUri, qrImageUrl, paymentUrl);
-      return;
-    }
-
-    let redirectUrl = paymentUrl;
-    if (orderData.upi_uri) {
-      const upiQuery = orderData.upi_uri.includes('?') ? orderData.upi_uri.split('?')[1] : '';
-      if (method === 'phonepe') {
-        redirectUrl = `phonepe://pay?${upiQuery}`;
-      } else if (method === 'paytm') {
-        redirectUrl = `paytmmp://pay?${upiQuery}`;
-      } else if (method === 'upi') {
-        redirectUrl = orderData.upi_uri;
-      }
-    }
-
-    if (redirectUrl) {
-      window.location.href = redirectUrl;
-    }
-
-    setTimeout(() => {
-      $('#payBody').innerHTML = `
-        <div class="success-ring"><span class="check">↗</span></div>
-        <h3 class="modal-title">Payment App Opened</h3>
-        <p class="modal-sub">Complete payment in your app. After paying, diamonds will be credited automatically to UID <b>${esc(player.uid)}</b>.</p>
-        ${paymentUrl ? `<a href="${esc(paymentUrl)}" target="_blank" class="btn btn-primary btn-block" style="margin-bottom:8px;">Open ZexiPay Checkout Page ↗</a>` : ''}
-        <button class="btn btn-secondary btn-block" type="button" id="backToMethods">Back to payment options</button>
-        <button class="btn btn-text" type="button" id="closeAfterRedirect">Cancel</button>
-      `;
-      $('#backToMethods').addEventListener('click', () => showPaymentModal(product, player));
-      $('#closeAfterRedirect').addEventListener('click', closePayment);
-      startStatusPolling(orderId, player);
-    }, 1800);
+    showQrPayment(amount, product, player, orderId, upiUri, qrImageUrl, paymentUrl);
   }
 
   function showQrPayment(amount, product, player, orderId, upiUri, qrImageUrl, paymentUrl) {
     clearPaymentTimer();
     $('#payBody').innerHTML = `
       <button class="modal-close qr-close" id="qrClose" aria-label="Close">✕</button>
-      <h3 class="modal-title">Scan & Pay via ZexiPay</h3>
-      <p class="modal-sub">Scan this fresh QR using PhonePe, Paytm, GPay or any UPI app.</p>
-      <div class="qr-box"><img class="generated-qr" src="${esc(qrImageUrl)}" alt="UPI payment QR" width="280" height="280"></div>
+      <h3 class="modal-title">Scan & Pay QR Code</h3>
+      <p class="modal-sub">PhonePe, Paytm, Google Pay ya kisi bhi UPI app se pay karein.</p>
+
+      <div class="qr-notice">
+        <div class="qr-notice-title">📸 Screenshot lekar payment karein</div>
+        <div class="qr-notice-desc">Is QR code ka <b>screenshot</b> lein ya <b>Download</b> karein, fir kisi bhi UPI app (PhonePe, Paytm, GPay) se scan karke payment karein.</div>
+      </div>
+
+      <div class="qr-box"><img id="qrImageEl" class="generated-qr" src="${esc(qrImageUrl)}" alt="UPI payment QR" width="280" height="280"></div>
       <div class="pay-amount">${money(amount)}</div>
+
+      <button class="btn btn-secondary btn-block" type="button" id="downloadQrBtn" style="margin-top: 10px; margin-bottom: 12px; font-weight: 600;">📥 Download QR Code</button>
+
       <div class="checkout-summary">
         <div class="cs-row"><span>Account</span><strong>${esc(player.nickname)}</strong></div>
         <div class="cs-row"><span>UID</span><strong>${esc(player.uid)}</strong></div>
         <div class="cs-row"><span>Item</span><strong>${esc(product.name)}</strong></div>
         <div class="cs-row"><span>Order ID</span><small>${esc(orderId)}</small></div>
       </div>
-      ${paymentUrl ? `<a href="${esc(paymentUrl)}" target="_blank" class="btn btn-secondary btn-block" style="margin-bottom:8px;">Open ZexiPay Checkout Page ↗</a>` : ''}
-      <p class="pay-status">QR expires in <span id="qrTimer">6:00</span></p>
-      <button class="btn btn-primary btn-block" id="qrBackBtn" type="button">Back to payment methods</button>
+
+      <p class="pay-status" style="margin-top: 12px;">QR expires in <span id="qrTimer">6:00</span></p>
+      <button class="btn btn-text" type="button" id="cancelQrBtn">Cancel Payment</button>
     `;
 
-    $('#qrClose').addEventListener('click', () => showPaymentModal(product, player));
-    $('#qrBackBtn').addEventListener('click', () => showPaymentModal(product, player));
+    $('#qrClose').addEventListener('click', closePayment);
+    $('#cancelQrBtn').addEventListener('click', closePayment);
+    $('#payClose').onclick = closePayment;
+
+    const downloadBtn = $('#downloadQrBtn');
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', async () => {
+        try {
+          downloadBtn.textContent = '⏳ Downloading...';
+          const res = await fetch(qrImageUrl);
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `Payment_QR_${orderId || 'FF'}.png`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+          downloadBtn.textContent = '✓ Downloaded';
+          setTimeout(() => { downloadBtn.textContent = '📥 Download QR Code'; }, 2500);
+        } catch (e) {
+          const a = document.createElement('a');
+          a.href = qrImageUrl;
+          a.target = '_blank';
+          a.download = `Payment_QR_${orderId || 'FF'}.png`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          downloadBtn.textContent = '📥 Download QR Code';
+        }
+      });
+    }
 
     startStatusPolling(orderId, player);
 
@@ -676,8 +639,8 @@
         clearPaymentTimer();
         $('#payBody').innerHTML = `
           <h3 class="modal-title">QR expired</h3>
-          <p class="modal-sub">This QR was valid for six minutes.</p>
-          <button class="btn btn-primary btn-block" id="qrRetryBtn" type="button">Choose payment method</button>
+          <p class="modal-sub">This QR code was valid for six minutes.</p>
+          <button class="btn btn-primary btn-block" id="qrRetryBtn" type="button">Try Again</button>
         `;
         $('#qrRetryBtn').addEventListener('click', () => showPaymentModal(product, player));
         return;

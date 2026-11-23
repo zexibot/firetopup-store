@@ -1911,8 +1911,10 @@ section {
 .qr-box { display: grid; place-items: center; min-height: 280px; padding: 1rem; background: #fff; border-radius: 14px; border: 1px solid var(--line); }
 .deep-payment-left b, .deep-payment-left small { display: block; }
 .deep-payment-left small { color: var(--muted); font-size: .75rem; margin-top: .15rem; }
-.deep-payment-radio { width: 18px; height: 18px; border: 2px solid var(--line); border-radius: 50%; }
 .deep-payment-option.selected .deep-payment-radio { border-color: var(--brand-1); box-shadow: inset 0 0 0 4px var(--surface, #fff); background: var(--brand-1); }
+.qr-notice { background: rgba(255, 122, 24, .08); border: 1px solid rgba(255, 122, 24, .25); border-radius: 12px; padding: .8rem .95rem; margin: .6rem 0 1rem; text-align: center; }
+.qr-notice-title { font-weight: 700; color: #ff6a00; font-size: .95rem; margin-bottom: .25rem; display: flex; align-items: center; justify-content: center; gap: .35rem; }
+.qr-notice-desc { font-size: .8rem; color: var(--muted, #888); line-height: 1.4; }
 
 /* reveal on scroll */
 
