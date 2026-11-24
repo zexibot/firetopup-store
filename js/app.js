@@ -343,19 +343,19 @@
 
   function normalizePlayer(data, uid) {
     const d = data.data || data;
-    const info = d.basicInfo || d.basicinfo || d.AccountInfo || d.player || d;
-    const clan = d.clanBasicInfo || d.clanbasicinfo || d.clan || {};
-    const nick = info.nickname || info.name || info.AccountName || info.username;
+    const info = d.basicInfo || d.basicinfo || d.BasicInformation || d.AccountInfo || d.player || d;
+    const clan = d.clanBasicInfo || d.clanbasicinfo || d.GuildInformation || d.clan || {};
+    const nick = info.nickname || info.name || info.Name || info.AccountName || info.username;
     if (!nick) return mockPlayer(uid);
 
     return {
       nickname: String(nick),
-      uid: String(info.accountId || info.uid || uid),
-      level: info.level != null ? info.level : 45,
-      region: info.region || 'IND',
-      likes: info.liked || info.likes || 1420,
-      clan: clan.clanName || clan.name || null,
-      elitePass: Boolean(info.hasElitePass || info.elitePass)
+      uid: String(info.accountId || info.UID || info.uid || uid),
+      level: info.level != null ? info.level : (info.Level != null ? info.Level : 45),
+      region: info.region || info.Region || 'IND',
+      likes: info.liked || info.likes || info.Likes || 1420,
+      clan: (clan.clanName && clan.clanName !== 'No Guild') ? clan.clanName : ((clan.GuildName && clan.GuildName !== 'No Guild') ? clan.GuildName : null),
+      elitePass: Boolean(info.hasElitePass || info.elitePass || d.ActivityInformation?.BooyahPass === 'Yes')
     };
   }
 
